@@ -77,7 +77,7 @@ while True:
     p.removeBody(obj_ids['rigid'][-2])
     p.removeBody(obj_ids['rigid'][-3])
 
-
+# add collision detection to see valid structures
 
 for i in range (100000):
     p.stepSimulation()

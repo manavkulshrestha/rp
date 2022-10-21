@@ -38,7 +38,7 @@ flags.DEFINE_integer('gpu', 0, '')
 flags.DEFINE_integer('gpu_limit', None, '')
 
 FLAGS = flags.FLAGS
-
+print('THE FLAGS>TASK THIS IS AS FOLLOWS IN THE FOLLOWING ', FLAGS.task)
 
 def main(unused_argv):
   # Configure which GPU to use.
@@ -56,6 +56,7 @@ def main(unused_argv):
     cfg.set_virtual_device_configuration(gpus[0], dev_cfg)
 
   # Load train and test datasets.
+  print(FLAGS.task)
   train_dataset = Dataset(os.path.join(FLAGS.data_dir, f'{FLAGS.task}-train'))
   test_dataset = Dataset(os.path.join(FLAGS.data_dir, f'{FLAGS.task}-test'))
 
