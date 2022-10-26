@@ -51,7 +51,7 @@ valid_rots = {
     'thinner_cuboid': ([0, np.pi/2], [0, np.pi/2], [0, np.pi/2]),
 }
 obj_num = 3
-objects = [0]*obj_num
+objects = [tuple()]*obj_num
 
 while True:
     objPos = np.array([0.5,0,0.1])

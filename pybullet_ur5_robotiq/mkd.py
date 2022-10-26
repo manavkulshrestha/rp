@@ -63,18 +63,19 @@ obj_num = 3
 objPos = np.array([0.5,0,0.1])
 
 while True:
-    objects = [0]*obj_num
-    obj_types = [0]*obj_num
-    pos = [0]*obj_num
-    ori = [0]*obj_num
+    objects = np.array(obj_num)
+    obj_types = np.array(obj_num)
+    pos = np.array(obj_num)
+    ori = np.array(obj_num)
 
     for i in range(obj_num):
         obj_types[i] = np.random.choice(shapes)
         pos[i] = objPos + np.random.uniform(-.02, .02, 3)
-        eu = [np.random.choice(vr) for vr in valid_rots[obj_types[i]]]
+        # eu = [np.random.choice(vr) for vr in valid_rots[obj_types[i]]]
         # print(eu)
-        ori[i] = p.getQuaternionFromEuler(eu)
-
+        # ori[i] = p.getQuaternionFromEuler(eu)
+        ori[i] = noRotation
+        
         objects[i] = p.loadURDF(os.path.join(ASSETS_ROOT, f'objects/{obj_types[i]}.urdf'), pos[i], ori[i])
 
         for i in range (100):
@@ -89,7 +90,9 @@ while True:
 
     if o01+o02+o12 > 1:
         with open('valid.txt', 'a') as f:
-            f.write(jsonpickle.encode([obj_types, pos, [p.getEulerFromQuaternion(orr) for orr in ori]])+'\n')
+            # frozen = jsonpickle.encode([obj_types, pos, [p.getEulerFromQuaternion(orr) for orr in ori]])
+            frozen = jsonpickle.encode([obj_types, pos])
+            f.write(frozen+'\n')
 
     for ob in objects:
         p.removeBody(ob)
