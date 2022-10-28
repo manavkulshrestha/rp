@@ -1,1 +1,96 @@
-dl.py
+import pybullet as p
+import time
+import pybullet_data
+from grippers import Suction
+import os
+import numpy as np
+import jsonpickle
+
+ASSETS_ROOT = os.path.abspath("urdf")
+obj_ids = {'fixed': [], 'rigid': [], 'deformable': []}
+homej = np.array([-1, -0.5, 0.5, -0.5, -0.5, 0]) * np.pi
+
+physicsClient = p.connect(p.GUI)
+p.setAdditionalSearchPath(pybullet_data.getDataPath())
+p.setGravity(0,0,-9.81)
+
+'''
+(1024, 768, (0.0069799963384866714, -0.30568817257881165, 0.9521061778068542, 0.0, 0.9999756813049316, 0.0021337540820240974, -0.006645859219133854, 0.0, -0.0, 0.9521294236183167, 0.3056955933570862, 0.0, -0.004907201509922743, 0.03555785119533539, -0.906664252281189, 1.0), (0.7499999403953552, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1.0000200271606445, -1.0, 0.0, 0.0, -0.02000020071864128, 0.0), (0.0, 0.0, 1.0), (-0.9521061778068542, 0.006645859219133854, -0.3056955933570862), (186.13323974609375, 26666.017578125, -0.0), (-6113.7626953125, 42.675079345703125, 19042.5859375),
+89.6000747680664, yaw
+-17.800016403198242, pitch
+1.0, dist
+(-0.07796166092157364, 0.005451506469398737, -0.06238798052072525)) target
+'''
+target = (-0.07796166092157364, 0.005451506469398737, -0.06238798052072525)
+dist = 1.0
+yaw = 89.6000747680664
+pitch = -17.800016403198242
+p.resetDebugVisualizerCamera(dist,yaw,pitch,target)
+
+planeId = p.loadURDF(os.path.join(ASSETS_ROOT, 'plane/plane.urdf'))
+
+origin = np.zeros(3)
+noRotation = p.getQuaternionFromEuler([0,0,0])
+
+ur5 = p.loadURDF(os.path.join(ASSETS_ROOT, 'ur5/ur5.urdf'), origin, noRotation, 
+                useFixedBase=True)
+suc = Suction(ASSETS_ROOT, ur5, 9, obj_ids)
+n_joints = p.getNumJoints(ur5)
+joints = [p.getJointInfo(ur5, i) for i in range(n_joints)]
+joints = [j[0] for j in joints if j[2] == p.JOINT_REVOLUTE]
+
+for j, hj in zip(joints, homej):
+    p.resetJointState(ur5, j, hj)
+
+# only static dimension shapes
+shapes = ['cube', 'cuboid', 'thin_cuboid', 'thinner_cuboid']
+valid_rots = {
+    'cube': ([0], [0], [0]),
+    'cuboid': ([0, np.pi/2], [0, np.pi/2], [0, np.pi/2]),
+    'thin_cuboid': ([0, np.pi/2], [0, np.pi/2], [0, np.pi/2]),
+    'thinner_cuboid': ([0, np.pi/2], [0, np.pi/2], [0, np.pi/2]),
+}
+
+dims = {
+    'cube': [0.03, 0.03, 0.03],
+    'cuboid': [0.03, 0.025, 0.06],
+    'thin_cuboid': [0.06, 0.01, 0.025],
+    'thinner_cuboid': [0.03, 0.03, 0.01]
+}
+
+obj_num = 3
+
+objPos = np.array([0.5,0,0.1])
+
+while True:
+    objects = [0]*obj_num
+    obj_types = [0]*obj_num
+    pos = [0]*obj_num
+    ori = [0]*obj_num
+
+    lines = None
+    with open('valid.txt', 'w') as f:
+        lines = f.readlines()
+
+    for l in range(lines):
+
+        json.decode()
+
+        objects[i] = p.loadURDF(os.path.join(ASSETS_ROOT, f'objects/{obj_types[i]}.urdf'), pos[i], ori[i])
+
+        for i in range (130):
+            p.stepSimulation()
+            time.sleep(1./240.)
+
+    o01 = 1 if p.getContactPoints(objects[0], objects[1]) else 0
+    o12 = 1 if p.getContactPoints(objects[1], objects[2]) else 0
+    o02 = 1 if p.getContactPoints(objects[0], objects[2]) else 0
+
+    print(o01, o02, o12)
+
+    if o01+o02+o12 > 1:
+        with open('data.txt', 'a') as f:
+            f.write(jsonpickle.encode([obj_types, pos, [p.getEulerFromQuaternion(orr) for orr in ori]])+'\n')
+
+    for ob in objects:
+        p.removeBody(ob)

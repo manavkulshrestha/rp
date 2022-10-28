@@ -52,10 +52,10 @@ valid_rots = {
 }
 
 dims = {
-    'cube': [0.03, 0.03, 0.03],
-    'cuboid': [0.03, 0.025, 0.06],
-    'thin_cuboid': [0.06, 0.01, 0.025],
-    'thinner_cuboid': [0.03, 0.03, 0.01]
+    'cube': np.array([0.03, 0.03, 0.03]),
+    'cuboid': np.array([0.03, 0.025, 0.06]),
+    'thin_cuboid': np.array([0.06, 0.01, 0.025]),
+    'thinner_cuboid': np.array([0.03, 0.03, 0.01])
 }
 
 obj_num = 3
@@ -63,10 +63,10 @@ obj_num = 3
 objPos = np.array([0.5,0,0.1])
 
 while True:
-    objects = np.array(obj_num)
-    obj_types = np.array(obj_num)
-    pos = np.array(obj_num)
-    ori = np.array(obj_num)
+    objects = np.zeros(obj_num, dtype=int)
+    obj_types = np.zeros(obj_num, dtype=object)
+    pos = np.zeros((obj_num, 3))
+    ori = np.zeros((obj_num, 4))
 
     for i in range(obj_num):
         obj_types[i] = np.random.choice(shapes)
@@ -76,9 +76,9 @@ while True:
         # ori[i] = p.getQuaternionFromEuler(eu)
         ori[i] = noRotation
         
-        objects[i] = p.loadURDF(os.path.join(ASSETS_ROOT, f'objects/{obj_types[i]}.urdf'), pos[i], ori[i])
+        objects[i] = p.loadURDF(os.path.join(ASSETS_ROOT, f'objects/{obj_types[i]}.urdf'), pos[i], noRotation)
 
-        for i in range (100):
+        for i in range (130):
             p.stepSimulation()
             time.sleep(1./240.)
 
@@ -86,13 +86,32 @@ while True:
     o12 = 1 if p.getContactPoints(objects[1], objects[2]) else 0
     o02 = 1 if p.getContactPoints(objects[0], objects[2]) else 0
 
-    print(o01, o02, o12)
+    print(o01, o02, o12, end=' ')
+
+    for i, obj in enumerate(objects):
+        _, cori = p.getBasePositionAndOrientation(obj)
+
+        nr = np.array(p.getEulerFromQuaternion(noRotation))
+        co = np.array(p.getEulerFromQuaternion(cori))
+
+        diff = abs(nr-co)
+        print(np.around(diff, 4), end=' ')
+        if (diff > 1e2).any():
+            print('NOPE', end=' ')
+            continue
 
     if o01+o02+o12 > 1:
-        with open('valid.txt', 'a') as f:
+        print('ACCEPTED', end=' ')
+        with open('data_points.txt', 'a') as f:
+            np.savetxt(f, np.hstack(np.concatenate([pos[i], dims[obj_types[i]]]) for i in range(3)), newline=' ')
+            f.write('\n')
+
+        with open('data_setup.txt', 'a') as f:
             # frozen = jsonpickle.encode([obj_types, pos, [p.getEulerFromQuaternion(orr) for orr in ori]])
             frozen = jsonpickle.encode([obj_types, pos])
             f.write(frozen+'\n')
+
+    print()
 
     for ob in objects:
         p.removeBody(ob)
