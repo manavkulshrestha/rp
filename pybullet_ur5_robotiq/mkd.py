@@ -54,8 +54,15 @@ valid_rots = {
 dims = {
     'cube': np.array([0.03, 0.03, 0.03]),
     'cuboid': np.array([0.03, 0.025, 0.06]),
-    'thin_cuboid': np.array([0.06, 0.01, 0.025]),
+    'thin_cuboid': np.array([0.06, 0.025, 0.01]),
     'thinner_cuboid': np.array([0.03, 0.03, 0.01])
+}
+
+shape_oh = {
+    'cube': [1, 0, 0, 0],
+    'cuboid': [0, 1, 0, 0],
+    'thin_cuboid': [0, 0, 1, 0],
+    'thinner_cuboid': [0, 0, 0, 1],
 }
 
 obj_num = 3
@@ -78,7 +85,7 @@ while True:
         
         objects[i] = p.loadURDF(os.path.join(ASSETS_ROOT, f'objects/{obj_types[i]}.urdf'), pos[i], noRotation)
 
-        for i in range (130):
+        for i in range (150):
             p.stepSimulation()
             time.sleep(1./240.)
 
@@ -95,16 +102,20 @@ while True:
         co = np.array(p.getEulerFromQuaternion(cori))
 
         diff = abs(nr-co)
-        print(np.around(diff, 4), end=' ')
-        if (diff > 1e2).any():
-            print('NOPE', end=' ')
-            continue
+        diffb = (diff > 1e-2)
+        print(f'{i}diff={np.around(diff, 4)}{diffb}', end=' ')
+        if diffb.any():
+            print(f'NOPE(diff={diff})', end=' ')
+            o01 = o12 = o02 = 0
+            break
 
     if o01+o02+o12 > 1:
-        print('ACCEPTED', end=' ')
+        print('ACCEPTED', end=' ', flush=True)
         with open('data_points.txt', 'a') as f:
-            np.savetxt(f, np.hstack(np.concatenate([pos[i], dims[obj_types[i]]]) for i in range(3)), newline=' ')
+            np.savetxt(f, np.hstack([np.concatenate([shape_oh[obj_types[i]], pos[i], dims[obj_types[i]]]) for i in range(3)]), newline=' ')
             f.write('\n')
+        # time.sleep(1)
+        # input()
 
         with open('data_setup.txt', 'a') as f:
             # frozen = jsonpickle.encode([obj_types, pos, [p.getEulerFromQuaternion(orr) for orr in ori]])

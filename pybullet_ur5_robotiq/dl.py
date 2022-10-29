@@ -54,7 +54,7 @@ valid_rots = {
 dims = {
     'cube': [0.03, 0.03, 0.03],
     'cuboid': [0.03, 0.025, 0.06],
-    'thin_cuboid': [0.06, 0.01, 0.025],
+    'thin_cuboid': [0.06, 0.025, 0.01],
     'thinner_cuboid': [0.03, 0.03, 0.01]
 }
 
