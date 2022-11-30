@@ -65,11 +65,11 @@ shape_oh = {
     'thinner_cuboid': [0, 0, 0, 1],
 }
 
-obj_num = 3
-
 objPos = np.array([0.5,0,0.1])
 
 while True:
+    obj_num = 12
+
     objects = np.zeros(obj_num, dtype=int)
     obj_types = np.zeros(obj_num, dtype=object)
     pos = np.zeros((obj_num, 3))
@@ -111,18 +111,19 @@ while True:
 
     if o01+o02+o12 > 1:
         print('ACCEPTED', end=' ', flush=True)
-        with open('data_points.txt', 'a') as f:
+        with open('data_points9.txt', 'a') as f:
             np.savetxt(f, np.hstack([np.concatenate([shape_oh[obj_types[i]], pos[i], dims[obj_types[i]]]) for i in range(3)]), newline=' ')
             f.write('\n')
         # time.sleep(1)
         # input()
 
-        with open('data_setup.txt', 'a') as f:
+        with open('data_setup9.txt', 'a') as f:
             # frozen = jsonpickle.encode([obj_types, pos, [p.getEulerFromQuaternion(orr) for orr in ori]])
             frozen = jsonpickle.encode([obj_types, pos])
             f.write(frozen+'\n')
 
     print()
+    time.sleep(3)
 
     for ob in objects:
         p.removeBody(ob)
