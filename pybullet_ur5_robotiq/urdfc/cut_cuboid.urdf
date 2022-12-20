@@ -11,7 +11,7 @@
 		</visual>
 		<collision>
 			<geometry>
-				<mesh filename="cut_cuboid/tinker_vhacd.obj" scale="0.00095 0.00095 0.0095" />
+				<mesh filename="cut_cuboid/tinker_vhacd.obj" scale="0.001 0.001 0.001" />
 			</geometry>
 		<origin xyz="0.040512391581083565 0.03900000000000001 -0.029999983326286478" rpy="0 0 0" /></collision>
 		<inertial>
