@@ -6,7 +6,7 @@
 				<mesh filename="roof/tinker.obj" scale="0.001 0.001 0.001" />
 			</geometry>
 			<material name="texture">
-				<color rgba="0.5073394885634267 0.661892369457534 0.27415014409131155 1.0" />
+				<color rgba="0.0859375, 0.9921875, 1.3359375 1.0" />
 			</material>
 		</visual>
 		<collision>

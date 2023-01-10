@@ -1,0 +1,218 @@
+import os
+import pybullet as p
+import pybullet_data
+from numpy import pi
+from bidict import bidict
+import time
+
+
+class PBObjectLoader:
+    def __init__(self, asset_root):
+        self.obj_ids = []
+        self.obj_idtyp = {}
+        self.asset_root = os.path.abspath(asset_root)
+        
+    def load_obj(self, otype, pos=(0,0,0), quat=None, euler=None, wait=0):
+        if euler is not None: # not really idiot proof
+            quat = p.getQuaternionFromEuler(euler)
+        elif quat is None:
+            quat = (0,0,0,1)
+        
+        oid = p.loadURDF(os.path.join(self.asset_root, f'{otype}.urdf'), pos, quat)
+
+        for _ in range(wait):
+            p.stepSimulation()
+            time.sleep(1./240.)
+            
+        self.obj_ids.append(oid)
+        self.obj_idtyp[oid] = otype
+        
+        return oid
+    
+    def recreate(self, oid_subset=None):
+        oid_to_mesh = {}
+
+        if oid_subset is None:
+            oid_subset = self.obj_ids
+        
+        for oid in oid_subset:
+            oty = self.obj_idtyp[oid]
+            mesh = make_obj(oty)
+
+            m_pos, m_ori = p.getBasePositionAndOrientation(oid)
+            mesh.apply_transform(get_transform(rotq=m_ori, pos=m_pos))
+
+            oid_to_mesh[oid] = mesh
+
+        sc = trimesh.Scene(list(oid_to_mesh.values()))
+
+        return bidict(oid_to_mesh), sc
+    
+    def get_objs(self):
+        return list(zip(self.obj_ids, self.obj_typ))
+
+    
+PLANE_ROOT = os.path.abspath('urdf')
+
+physicsClient = p.connect(p.GUI)
+p.setAdditionalSearchPath(pybullet_data.getDataPath())
+p.setGravity(0,0,-9.81)
+
+target = (-0.07796166092157364, 0.005451506469398737, -0.06238798052072525)
+dist = 1.0
+yaw = 89.6000747680664
+pitch = -17.800016403198242
+p.resetDebugVisualizerCamera(dist,yaw,pitch,target)
+
+planeId = p.loadURDF(os.path.join(PLANE_ROOT, 'plane/plane.urdf'))
+
+loader = PBObjectLoader('urdfc')
+
+otypes = list(OM_MAP.keys())
+otcols = [x for x in otypes if x not in ['roof', 'pyramid', 'tcuboid', 'scuboid']]
+
+# loader.load_obj(np.random.choice(otypes), pos=[0.06, 0, 0.01], euler=[0, 0, 0])
+# loader.load_obj(np.random.choice(otypes), pos=[0, 0, 0.01], euler=[0, 0, 0], wait=100)
+
+# loader.load_obj('cube', pos=[0.025, 0, .1], ori=[pi/2, pi/2, 0], wait=100)
+
+# sc = trimesh.Scene()
+N_LEVELS = 3
+
+bound = .1
+
+# maps that level's objects ids to their meshes
+level = [[] for _ in range(N_LEVELS)]
+
+# TODO
+# maybe cm recreate everytime? # YES, later
+
+# debug stuff
+scp = None
+mo1, mo2, = None, None
+# end debug stuff
+
+seed = 348 or np.random.randint(0, 10000)
+np.random.seed(seed)
+print('SEED = ',seed)
+
+try:
+    # level 0
+    cm0 = trimesh.collision.CollisionManager()
+    attempt = 100
+    while attempt > 0:
+        # decide candidate state
+        c_pos = (*np.random.uniform(-bound,bound,size=2), 0)
+        c_typ = np.random.choice(otcols)
+        c_orn_poss = list(OT_LOM_MAP[c_typ].values())
+        c_orn = choice(choice(c_orn_poss))
+
+        # put in state
+        c_mesh = OM_MAP[c_typ].copy()
+        c_mesh.apply_transform(get_transform(euler=c_orn, pos=c_pos))
+
+        # is far enough
+        dist, name = cm0.min_distance_single(c_mesh, return_name=True)
+        if dist > bound/5:
+            attempt = 10
+
+            # add to pybullet and collisionmanager
+            o_id = loader.load_obj(c_typ, euler=c_orn, pos=c_pos, wait=100)
+            cm0.add_object(str(o_id), c_mesh)
+
+            # record of which object meshes are in which level
+            level[0].append(o_id) 
+        else:
+            attempt -= 1
+            
+    level0_avail = set(level[0])
+        
+    # level 1
+    for i, o_id1 in enumerate(level[0]):
+        for j, o_id2 in enumerate(level[0][i+1:], start=i+1):
+            # run placement algorithm
+            oim_map,_ = loader.recreate([o_id1, o_id2])
+            mo1, mo2 = list(oim_map.values())
+
+            object_info = get_obj_pose(mo1, mo2)
+            if object_info is None:
+                continue
+            potype, pquat, ppos, pmesh = object_info
+
+            # check for collisions with current level and place if none
+            _,coli_sc = loader.recreate(level[1])
+            cmi,_ = trimesh.collision.scene_to_collision(coli_sc)
+            
+            if (tdis := cmi.min_distance_single(pmesh)) > 1e-4:
+                o_id = loader.load_obj(potype, quat=pquat, pos=ppos+np.array([0,0,0.005]), wait=100)
+                level[1].append(o_id)
+                level0_avail -= {o_id1, o_id2}
+                
+    for avail in level0_avail:
+        oim_map,_ = loader.recreate([avail])
+        mesh, = list(oim_map.values())
+        
+        object_info = get_obj_pose(mesh)
+        if object_info is None:
+            continue
+        potype, pquat, ppos, pmesh = object_info
+        
+        _,coli_sc = loader.recreate(level[1])
+        cmi,_ = trimesh.collision.scene_to_collision(coli_sc)
+
+        if (tdis := cmi.min_distance_single(pmesh)) > 1e-4:
+            o_id = loader.load_obj(potype, quat=pquat, pos=ppos+np.array([0,0,0.005]), wait=100)
+            level[1].append(o_id)
+            
+    level1_avail = set(level[1])
+    
+    # level 2
+    for i, o_id1 in enumerate(level[1]):
+        for j, o_id2 in enumerate(level[1][i+1:], start=i+1):
+            # run placement algorithm
+            oim_map,_ = loader.recreate([o_id1, o_id2])
+            mo1, mo2 = list(oim_map.values())
+
+            object_info = get_obj_pose(mo1, mo2)
+            if object_info is None:
+                continue
+            potype, pquat, ppos, pmesh = object_info
+
+            # check for collisions with current level and place if none
+            _,coli_sc = loader.recreate(level[2])
+            cmi,_ = trimesh.collision.scene_to_collision(coli_sc)
+            
+            if (tdis := cmi.min_distance_single(pmesh)) > 1e-4:
+                o_id = loader.load_obj(potype, quat=pquat, pos=ppos+np.array([0,0,0.005]), wait=100)
+                level[2].append(o_id)
+                level1_avail -= {o_id1, o_id2}
+                
+    for avail in level1_avail:
+        oim_map,_ = loader.recreate([avail])
+        mesh, = list(oim_map.values())
+        
+        object_info = get_obj_pose(mesh)
+        if object_info is None:
+            continue
+        potype, pquat, ppos, pmesh = object_info
+        
+        _,coli_sc = loader.recreate(level[1])
+        cmi,_ = trimesh.collision.scene_to_collision(coli_sc)
+
+        if (tdis := cmi.min_distance_single(pmesh)) > 1e-4:
+            o_id = loader.load_obj(potype, quat=pquat, pos=ppos+np.array([0,0,0.005]), wait=100)
+            level[2].append(o_id)
+        
+except Exception as e:
+    p.disconnect()
+    if str(e) != 'sbreak':
+        raise e
+
+try:
+    for _ in range(10000):
+        p.stepSimulation()
+        time.sleep(1./240.)
+except:
+    pass
+finally:
+    p.disconnect()
